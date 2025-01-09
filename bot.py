@@ -136,7 +136,9 @@ async def process_list_goals(message: Message):
         await message.answer("🎯Список ваших целей:\n" + result, reply_markup=keyboard)
     else:
         await message.answer("❗Целей еще нет.\n" +
-                             "📄Для дополнительной информации напишите /help")
+                             "⚠️Подсказка: чтобы добавить цель необходимо написать команду в следующем виде:\n" +
+                             "/add_goal [название] [дата:год-месяц-число]\n" +
+                             '📄Пример: /add_goal "Изучить JavaScript" 2025-02-28')
 
     
 @dp.callback_query(F.data=="complete_goal")
@@ -196,11 +198,12 @@ async def process_add_task(message: Message, command: CommandObject):
 @dp.message(Command('view_goal'))
 async def process_view_goal(message: Message, command: CommandObject):
     goal_id = command.args
+    user_id = message.from_user.id
     try:
         sql_request = f"""
-                SELECT g.name, t.name, t.deadline, t.status, t.id
+                SELECT g.name, t.name, t.deadline, t.status, t.id, g.user_id
                 FROM Tasks t INNER JOIN Goals g on g.id = t.goal_id
-                WHERE g.id = {goal_id}
+                WHERE g.id = {goal_id} and g.user_id = {user_id}
                 """
         table = cur.execute(sql_request)
         result = ""
@@ -208,7 +211,10 @@ async def process_view_goal(message: Message, command: CommandObject):
         for row in table:
             goal_name = row[0]
             result += f"Задача: {row[1]}, срок: {row[2]}, статус: {row[3]}, task_id: {row[4]}.\n"
-        await message.answer(f"📋Ваши задачи для цели {goal_name}:\n" + result, reply_markup=task_keyboard)
+        if result:
+            await message.answer(f"📋Ваши задачи для цели {goal_name}:\n" + result, reply_markup=task_keyboard)
+        else:
+            await message.answer("⚠️Цель и (или) задачи не существуют.")
     except Exception as ex:
         print(ex)
         await message.reply("⚠️Произошла ошибка! Убедитесь, что goal_id существует." +
